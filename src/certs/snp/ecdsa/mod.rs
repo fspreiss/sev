@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(feature = "openssl")]
 use super::*;
 
 use crate::util::hexdump;
@@ -8,7 +7,6 @@ use crate::util::hexdump;
 #[cfg(feature = "openssl")]
 use crate::certs::snp::{AsLeBytes, FromLe};
 
-#[cfg(feature = "openssl")]
 use std::convert::TryFrom;
 
 use serde::{Deserialize, Serialize};
@@ -106,6 +104,28 @@ impl TryFrom<&Signature> for ecdsa::EcdsaSig {
         let r = bn::BigNum::from_le(&value.r)?;
         let s = bn::BigNum::from_le(&value.s)?;
         Ok(ecdsa::EcdsaSig::from_private_components(r, s)?)
+    }
+}
+
+impl TryFrom<&Signature> for p384::ecdsa::Signature {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(signature: &Signature) -> Result<Self> {
+        let r_big_endian: Vec<u8> = signature.r.iter().copied().take(48).rev().collect();
+        let s_big_endian: Vec<u8> = signature.s.iter().copied().take(48).rev().collect();
+
+        use p384::elliptic_curve::generic_array::GenericArray;
+        p384::ecdsa::Signature::from_scalars(
+            GenericArray::clone_from_slice(&r_big_endian),
+            GenericArray::clone_from_slice(&s_big_endian),
+        )
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("failed to deserialize signature from scalars: {e:?}"),
+            )
+        })
     }
 }
 

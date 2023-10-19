@@ -2,21 +2,16 @@
 
 use crate::{certs::snp::ecdsa::Signature, firmware::host::TcbVersion, util::hexdump};
 
-#[cfg(feature = "openssl")]
 use crate::certs::snp::{Chain, Verifiable};
 
 use std::fmt::Display;
 
-#[cfg(feature = "openssl")]
 use std::{
     convert::TryFrom,
     io::{self, Error, ErrorKind},
 };
 
 use bitfield::bitfield;
-
-#[cfg(feature = "openssl")]
-use openssl::{ecdsa::EcdsaSig, sha::Sha384};
 
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -316,14 +311,24 @@ Launch TCB:
     }
 }
 
-#[cfg(feature = "openssl")]
 impl Verifiable for (&Chain, &AttestationReport) {
     type Output = ();
 
     fn verify(self) -> io::Result<Self::Output> {
+        // According to Chapter 3 of the [Versioned Chip Endorsement Key (VCEK) Certificate and
+        // KDS Interface Specification][spec], the VCEK certificate certifies an ECDSA public key on curve P-384,
+        // and the signature hash algorithm is sha384.
+        // [spec]: https://www.amd.com/content/dam/amd/en/documents/epyc-technical-docs/specifications/57230.pdf
+
         let vcek = self.0.verify()?;
 
-        let sig = EcdsaSig::try_from(&self.1.signature)?;
+        let sig = p384::ecdsa::Signature::try_from(&self.1.signature).map_err(|e| {
+            io::Error::new(
+                ErrorKind::Other,
+                format!("failed to deserialize signature from scalars: {e:?}"),
+            )
+        })?;
+
         let measurable_bytes: &[u8] = &bincode::serialize(self.1).map_err(|e| {
             Error::new(
                 ErrorKind::Other,
@@ -331,20 +336,24 @@ impl Verifiable for (&Chain, &AttestationReport) {
             )
         })?[..0x2a0];
 
-        let mut hasher = Sha384::new();
-        hasher.update(measurable_bytes);
-        let base_digest = hasher.finish();
+        let verifying_key = p384::ecdsa::VerifyingKey::from_sec1_bytes(vcek.public_key_sec1())
+            .map_err(|e| {
+                io::Error::new(
+                    ErrorKind::Other,
+                    format!("failed to deserialize public key from sec1 bytes: {e:?}"),
+                )
+            })?;
 
-        let ec = vcek.public_key()?.ec_key()?;
-        let signed = sig.verify(&base_digest, &ec)?;
+        use sha2::Digest;
+        let digest = sha2::Sha384::new_with_prefix(measurable_bytes);
 
-        match signed {
-            true => Ok(()),
-            false => Err(Error::new(
+        use p384::ecdsa::signature::DigestVerifier;
+        verifying_key.verify_digest(digest, &sig).map_err(|e| {
+            io::Error::new(
                 ErrorKind::Other,
-                "VCEK does not sign the attestation report",
-            )),
-        }
+                format!("VCEK does not sign the attestation report: {e:?}"),
+            )
+        })
     }
 }
 

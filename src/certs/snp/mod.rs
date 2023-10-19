@@ -3,29 +3,22 @@
 /// ECDSA signatures.
 pub mod ecdsa;
 
-#[cfg(feature = "openssl")]
 /// Certificate Authority (CA) certificates.
 pub mod ca;
 
-#[cfg(feature = "openssl")]
 /// Built-in certificates for Milan and Genoa machines.
 pub mod builtin;
 
-#[cfg(feature = "openssl")]
 mod cert;
 
-#[cfg(feature = "openssl")]
 mod chain;
 
-#[cfg(feature = "openssl")]
 pub use cert::Certificate;
 
-#[cfg(feature = "openssl")]
 pub use chain::Chain;
 
 use std::io::Result;
 
-#[cfg(feature = "openssl")]
 use std::io::{Error, ErrorKind};
 
 #[cfg(feature = "openssl")]
@@ -35,7 +28,6 @@ use openssl::x509::X509;
 #[allow(dead_code)]
 struct Body;
 
-#[cfg(feature = "openssl")]
 /// An interface for types that may contain entities such as
 /// signatures that must be verified.
 pub trait Verifiable {
