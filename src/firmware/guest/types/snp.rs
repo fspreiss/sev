@@ -331,6 +331,9 @@ impl Verifiable for (&Chain, &AttestationReport) {
             )
         })?[..0x2a0];
 
+        use sha2::Digest;
+        let base_digest = sha2::Sha384::new_with_prefix(measurable_bytes);
+
         let verifying_key = p384::ecdsa::VerifyingKey::from_sec1_bytes(vcek.public_key_sec1())
             .map_err(|e| {
                 io::Error::new(
@@ -339,11 +342,8 @@ impl Verifiable for (&Chain, &AttestationReport) {
                 )
             })?;
 
-        use sha2::Digest;
-        let digest = sha2::Sha384::new_with_prefix(measurable_bytes);
-
         use p384::ecdsa::signature::DigestVerifier;
-        verifying_key.verify_digest(digest, &sig).map_err(|e| {
+        verifying_key.verify_digest(base_digest, &sig).map_err(|e| {
             io::Error::new(
                 ErrorKind::Other,
                 format!("VCEK does not sign the attestation report: {e:?}"),

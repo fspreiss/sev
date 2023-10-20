@@ -121,7 +121,6 @@ impl Certificate {
     pub fn from_der(der: &[u8]) -> Result<Self> {
         let cert = x509_cert::Certificate::from_der(der)
             .map_err(|e| io::Error::new(ErrorKind::InvalidData, format!("invalid DER: {}", e)))?;
-
         Ok(Self(cert))
     }
 
