@@ -322,12 +322,7 @@ impl Verifiable for (&Chain, &AttestationReport) {
 
         let vcek = self.0.verify()?;
 
-        let sig = p384::ecdsa::Signature::try_from(&self.1.signature).map_err(|e| {
-            io::Error::new(
-                ErrorKind::Other,
-                format!("failed to deserialize signature from scalars: {e:?}"),
-            )
-        })?;
+        let sig = p384::ecdsa::Signature::try_from(&self.1.signature)?;
 
         let measurable_bytes: &[u8] = &bincode::serialize(self.1).map_err(|e| {
             Error::new(
