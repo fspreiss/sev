@@ -38,9 +38,29 @@ mod snp {
 
         let ca = ca::Chain { ark, ask };
 
+        let chain = Chain {
+            ca,
+            vcek: vcek.clone(),
+        };
+
+        assert_eq!(chain.verify().ok(), Some(&vcek));
+    }
+
+    #[test]
+    fn milan_chain_invalid() {
+        let ark = milan::ark().unwrap();
+        let ask = milan::ask().unwrap();
+        let vcek = {
+            let mut buf = TEST_MILAN_VCEK_DER.to_vec();
+            buf[40] ^= 0xff;
+            Certificate::from_der(&buf).unwrap()
+        };
+
+        let ca = ca::Chain { ark, ask };
+
         let chain = Chain { ca, vcek };
 
-        chain.verify().unwrap();
+        assert_eq!(chain.verify().ok(), None);
     }
 
     #[test]
@@ -59,6 +79,26 @@ mod snp {
         let report: AttestationReport =
             unsafe { std::ptr::read(report_bytes.as_ptr() as *const _) };
 
-        (&chain, &report).verify().unwrap();
+        assert_eq!((&chain, &report).verify().ok(), Some(()));
+    }
+
+    #[test]
+    fn milan_report_invalid() {
+        use sev::firmware::guest::AttestationReport;
+
+        let ark = milan::ark().unwrap();
+        let ask = milan::ask().unwrap();
+        let vcek = Certificate::from_der(TEST_MILAN_VCEK_DER).unwrap();
+
+        let ca = ca::Chain { ark, ask };
+
+        let chain = Chain { ca, vcek };
+
+        let mut report_bytes = hex::decode(TEST_MILAN_ATTESTATION_REPORT).unwrap();
+        report_bytes[0] ^= 0x80;
+        let report: AttestationReport =
+            unsafe { std::ptr::read(report_bytes.as_ptr() as *const _) };
+
+        assert_eq!((&chain, &report).verify().ok(), None);
     }
 }

@@ -14,7 +14,7 @@ use x509_cert::spki; // re-export of spki crate
 
 /// Structures/interfaces for SEV-SNP certificates.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Certificate(x509_cert::Certificate);
 
 const RSA_SSA_PSS_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.10");

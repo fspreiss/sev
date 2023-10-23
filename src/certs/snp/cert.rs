@@ -7,7 +7,7 @@ use openssl::x509::X509;
 
 /// Structures/interfaces for SEV-SNP certificates.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Certificate(X509);
 
 /// Wrap an X509 struct into a Certificate.
