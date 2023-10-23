@@ -13,6 +13,9 @@ use std::{
 
 use bitfield::bitfield;
 
+#[cfg(feature = "openssl")]
+use openssl::{ecdsa::EcdsaSig, sha::Sha384};
+
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
@@ -311,6 +314,39 @@ Launch TCB:
     }
 }
 
+#[cfg(feature = "openssl")]
+impl Verifiable for (&Chain, &AttestationReport) {
+    type Output = ();
+
+    fn verify(self) -> io::Result<Self::Output> {
+        let vcek = self.0.verify()?;
+
+        let sig = EcdsaSig::try_from(&self.1.signature)?;
+        let measurable_bytes: &[u8] = &bincode::serialize(self.1).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Unable to serialize bytes: {}", e),
+            )
+        })?[..0x2a0];
+
+        let mut hasher = Sha384::new();
+        hasher.update(measurable_bytes);
+        let base_digest = hasher.finish();
+
+        let ec = vcek.public_key()?.ec_key()?;
+        let signed = sig.verify(&base_digest, &ec)?;
+
+        match signed {
+            true => Ok(()),
+            false => Err(Error::new(
+                ErrorKind::Other,
+                "VCEK does not sign the attestation report",
+            )),
+        }
+    }
+}
+
+#[cfg(not(feature = "openssl"))]
 impl Verifiable for (&Chain, &AttestationReport) {
     type Output = ();
 

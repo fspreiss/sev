@@ -9,20 +9,23 @@ pub mod ca;
 /// Built-in certificates for Milan and Genoa machines.
 pub mod builtin;
 
+#[cfg(not(feature = "openssl"))]
 mod cert;
+#[cfg(feature = "openssl")]
+mod cert_openssl;
 
 mod chain;
 
+#[cfg(not(feature = "openssl"))]
 pub use cert::Certificate;
+#[cfg(feature = "openssl")]
+pub use cert_openssl::Certificate;
 
 pub use chain::Chain;
 
 use std::io::Result;
 
 use std::io::{Error, ErrorKind};
-
-#[cfg(feature = "openssl")]
-use openssl::x509::X509;
 
 #[cfg(feature = "openssl")]
 #[allow(dead_code)]

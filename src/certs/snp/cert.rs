@@ -2,9 +2,6 @@
 
 use super::*;
 
-#[cfg(feature = "openssl")]
-use openssl::pkey::{PKey, Public};
-
 use der::{referenced::OwnedToRef, Decode, DecodePem, Encode};
 use rsa::signature; // re-export of signature crate
 use signature::Verifier;
@@ -19,41 +16,6 @@ use x509_cert::spki; // re-export of spki crate
 
 #[derive(Clone, Debug)]
 pub struct Certificate(x509_cert::Certificate);
-
-/// Wrap an X509 struct into a Certificate.
-#[cfg(feature = "openssl")]
-impl TryFrom<X509> for Certificate {
-    type Error = io::Error;
-
-    fn try_from(x509: X509) -> std::result::Result<Self, Self::Error> {
-        Self::from_der(&x509.to_der()?)
-    }
-}
-
-/// Unwrap the underlying X509 struct from a Certificate.
-#[cfg(feature = "openssl")]
-impl TryFrom<Certificate> for X509 {
-    type Error = io::Error;
-
-    fn try_from(cert: Certificate) -> std::result::Result<Self, Self::Error> {
-        Self::try_from(&cert)
-    }
-}
-
-/// Clone the underlying X509 structure from a reference to a Certificate.
-#[cfg(feature = "openssl")]
-impl TryFrom<&Certificate> for X509 {
-    type Error = io::Error;
-
-    fn try_from(cert: &Certificate) -> std::result::Result<Self, Self::Error> {
-        X509::from_der(&cert.to_der()?).map_err(|e| {
-            io::Error::new(
-                ErrorKind::InvalidData,
-                format!("failed to create X509 from DER: {e:?}"),
-            )
-        })
-    }
-}
 
 const RSA_SSA_PSS_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.10");
 
@@ -112,7 +74,7 @@ impl Certificate {
         use der::EncodePem;
         Ok(self
             .0
-            .to_pem(x509_cert::der::pem::LineEnding::default())
+            .to_pem(der::pem::LineEnding::default())
             .map_err(|e| io_error_other(format!("PEM-encoding failed: {}", e)))?
             .into_bytes())
     }
@@ -138,12 +100,6 @@ impl Certificate {
             .subject_public_key_info
             .subject_public_key
             .raw_bytes()
-    }
-
-    #[cfg(feature = "openssl")]
-    /// Retrieve the underlying X509 public key for a Certificate.
-    pub fn public_key(&self) -> Result<PKey<Public>> {
-        Ok(X509::try_from(self)?.public_key()?)
     }
 }
 
