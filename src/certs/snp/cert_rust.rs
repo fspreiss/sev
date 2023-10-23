@@ -3,6 +3,7 @@
 use super::*;
 
 use der::{referenced::OwnedToRef, Decode, DecodePem, Encode};
+use rsa::sha2; //re-export of sha2 crate
 use rsa::signature; // re-export of signature crate
 use signature::Verifier;
 use spki::ObjectIdentifier;
